@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
       },
       photos: visitor.photos,
     });
-  } catch (error: any) {
-    if (error?.digest === "NEXT_PRERENDER_INTERRUPTED") {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "NEXT_PRERENDER_INTERRUPTED") {
       throw error;
     }
     console.error("Error fetching visitor photos:", error);

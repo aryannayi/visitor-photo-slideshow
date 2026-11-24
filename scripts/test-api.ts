@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { POST as uploadPOST } from "../src/app/api/upload/route";
 import { GET as slideshowGET } from "../src/app/api/slideshow/route";
 import { POST as ackPOST } from "../src/app/api/slideshow/ack/route";

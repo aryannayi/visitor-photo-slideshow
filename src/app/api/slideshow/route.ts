@@ -82,8 +82,8 @@ export async function GET(req: NextRequest) {
       photos,
       slideDurationSeconds: 8,
     });
-  } catch (error: any) {
-    if (error?.digest === "NEXT_PRERENDER_INTERRUPTED") {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "NEXT_PRERENDER_INTERRUPTED") {
       throw error;
     }
     console.error("Error fetching slideshow queue:", error);
