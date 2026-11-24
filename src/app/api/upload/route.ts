@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { normalizeContact } from "@/lib/contact";
+import { uploadImageBuffer } from "@/lib/cloudinary";
 
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
@@ -111,19 +112,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Save files to public/uploads/ using crypto.randomUUID()
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadsDir, { recursive: true });
-
+    // Upload images directly to Cloudinary (folder: visitor-slideshow)
     const savedPhotoUrls: string[] = [];
 
     for (const file of files) {
-      const ext = MIME_TO_EXT[file.type] || ".jpg";
-      const uniqueFilename = `${crypto.randomUUID()}${ext}`;
-      const filePath = path.join(uploadsDir, uniqueFilename);
       const buffer = Buffer.from(await file.arrayBuffer());
-      await fs.writeFile(filePath, buffer);
-      savedPhotoUrls.push(`/uploads/${uniqueFilename}`);
+
+      if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_CLOUD_NAME) {
+        const uploadResult = await uploadImageBuffer(buffer, "visitor-slideshow");
+        savedPhotoUrls.push(uploadResult.secure_url);
+      } else {
+        // Safe local fallback if Cloudinary credentials are not configured
+        const uploadsDir = path.join(process.cwd(), "public", "uploads");
+        await fs.mkdir(uploadsDir, { recursive: true });
+        const ext = MIME_TO_EXT[file.type] || ".jpg";
+        const uniqueFilename = `${crypto.randomUUID()}${ext}`;
+        const filePath = path.join(uploadsDir, uniqueFilename);
+        await fs.writeFile(filePath, buffer);
+        savedPhotoUrls.push(`/uploads/${uniqueFilename}`);
+      }
     }
 
     // Returning Visitor Logic

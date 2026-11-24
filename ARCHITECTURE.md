@@ -14,14 +14,14 @@ The **Visitor Photo Slideshow** is a responsive, privacy-conscious full-stack we
 | **Framework** | **Next.js 14+ (App Router)** | Full-stack unified framework eliminating CORS and separate backend hosting; server route handlers (`src/app/api/*`) for database queries; optimized static and dynamic page rendering. | **Vite + Express**: Required running two separate processes, managing proxy configurations, and doubled deployment overhead. |
 | **Language** | **TypeScript 5+** | Compile-time type safety across database entities, API request/response payloads, and UI components; prevents runtime typos and structural bugs. | **JavaScript**: Lacks static typing; elevated risk of null-reference bugs and schema mismatch in multi-field form handling. |
 | **Styling** | **Tailwind CSS v4** | Rapid utility-first styling powering the customized **Warm Editorial Gallery Theme** (`#FAF6F0` cream, `#2C221E` espresso, `#B85A3A` terracotta) with zero runtime CSS-in-JS performance penalty. | **CSS Modules / Styled Components**: Slower development velocity; higher boilerplate for responsive TV and mobile layouts. |
-| **ORM & Database** | **Prisma ORM + SQLite** | **Zero-configuration setup** that runs immediately for local evaluation without external database services; strict schema typing via `@prisma/client`. Swapping to PostgreSQL or MySQL in production requires changing just 1 line (`provider = "postgresql"` in `schema.prisma`). | **Raw SQLite / node-sqlite3**: Prone to SQL injection vulnerabilities; lacks automated migrations and generated TypeScript types. |
-| **File Storage** | **Local UUID Storage (`public/uploads`)** | Self-contained, works with zero external API credentials; files are served directly by Next.js static asset pipeline. Configured with an optional Cloudinary adapter specification in `.env.example`. | **Cloudinary-only**: Would fail or block local evaluation if API keys were expired, rate-limited, or unconfigured by the evaluator. |
+| **ORM & Database** | **Prisma ORM + PostgreSQL (Neon)** | Cloud-native serverless PostgreSQL powering concurrent, transaction-safe queries and seamless Vercel deployment; strict schema typing via `@prisma/client`. | **Raw SQL / SQLite in Production**: Ephemeral filesystem on Vercel wipes local SQLite databases on every serverless function re-invocation. |
+| **File Storage** | **Cloudinary CDN (`visitor-slideshow`)** | Production-ready persistent cloud media storage with global CDN delivery, automated format optimization, and safe asset deletion via Cloudinary Admin SDK. Includes local fallback if credentials are unset. | **Local disk on Vercel**: Vercel's serverless environment has a read-only/ephemeral filesystem where local file writes are discarded across invocations. |
 
 ---
 
 ## 2. Complete Data Model
 
-The database schema is defined in [`prisma/schema.prisma`](file:///c:/Users/ASUS/Desktop/ass1/prisma/schema.prisma) and operates over SQLite.
+The database schema is defined in [`prisma/schema.prisma`](file:///c:/Users/ASUS/Desktop/ass1/prisma/schema.prisma) and operates over PostgreSQL (e.g. Neon Serverless Postgres).
 
 ### 2.1 Entity Relationship Diagram
 
@@ -148,9 +148,10 @@ sequenceDiagram
 
 ## 4. Concurrency, Integrity & Security Handling
 
-### 4.1 Collision-Free Concurrent File Uploads
-- **UUID-based File Naming**: Every saved file receives a unique `crypto.randomUUID()` filename combined with its validated extension (e.g., `30cd41a2-ccd7-4bb9-abb7-7f0be8c42cce.jpg`). Even if multiple visitors simultaneously upload files named `photo.jpg` or `image.png`, the disk filenames never collide or overwrite one another.
-- **Directory Isolation**: Uploads are stored in a designated `public/uploads/` directory, excluded from version control via `.gitignore` (with `.gitkeep` retained).
+### 4.1 Cloud-Native Storage & Collision-Free Uploads
+- **Cloudinary Media Pipeline**: Uploaded image buffers are streamed directly to Cloudinary under the `visitor-slideshow` folder. Cloudinary generates globally unique public IDs and serves images via secure HTTPS CDN URLs (`https://res.cloudinary.com/...`).
+- **Zero Local Disk Dependency for Vercel**: Eliminates the serverless ephemeral filesystem limitation where local `/public/uploads` files are lost upon cold starts.
+- **Graceful Local Fallback**: If Cloudinary credentials are not provided in development, the system falls back to saving files in `public/uploads/` with `crypto.randomUUID()` filenames.
 
 ### 4.2 Strict Multi-Tier File Validation
 1. **Client-Side Validation**:

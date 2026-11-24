@@ -1,6 +1,6 @@
 # Visitor Photo Slideshow & Exhibition Display
 
-A full-stack, privacy-conscious event photography and exhibition slideshow application built with **Next.js 14+ (App Router)**, **TypeScript**, **Tailwind CSS**, and **Prisma ORM with SQLite**.
+A full-stack, privacy-conscious event photography and exhibition slideshow application built with **Next.js 14+ (App Router)**, **TypeScript**, **Tailwind CSS**, **Prisma ORM with PostgreSQL (Neon)**, and **Cloudinary** for persistent media storage. Vercel deployment ready.
 
 Designed for museum exhibitions, art galleries, and experiential events, the platform enables guests to check in and submit photos while simultaneously driving a live Smart TV / large-screen digital exhibition with intelligent queue looping.
 
@@ -40,8 +40,8 @@ Designed for museum exhibitions, art galleries, and experiential events, the pla
 | **TypeScript 5+** | End-to-end type safety across backend and UI |
 | **Tailwind CSS v4** | Custom Warm Editorial Gallery theme and responsive layouts |
 | **Prisma ORM (v6.4)** | Type-safe database queries and schema migrations |
-| **SQLite** | Zero-config database requiring no external server |
-| **Local File Storage** | Collision-free UUID files stored in `public/uploads/` |
+| **PostgreSQL (Neon)** | Serverless cloud PostgreSQL database ready for Vercel |
+| **Cloudinary** | Production cloud media storage with CDN image delivery |
 
 ---
 
@@ -107,9 +107,9 @@ Designed for museum exhibitions, art galleries, and experiential events, the pla
    # On Windows (PowerShell)
    Copy-Item .env.example .env
    ```
-   *Note: `.env.example` pre-populates `DATABASE_URL="file:./dev.db"`.*
+   *Populate `DATABASE_URL` (PostgreSQL / Neon) and your Cloudinary credentials (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`).*
 
-4. **Initialize the SQLite database schema**:
+4. **Initialize the PostgreSQL database schema**:
    ```bash
    npx prisma db push
    ```

@@ -7,9 +7,18 @@ import { prisma } from "../src/lib/prisma";
 import fs from "fs";
 import path from "path";
 
-// Helper to create a fake File
-function createTestFile(filename: string, mimeType: string, content = "fake image content") {
-  const blob = new Blob([content], { type: mimeType });
+// Minimal valid 1x1 pixel image buffer for test uploads (accepted by Cloudinary)
+const TINY_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+// Helper to create a valid File
+function createTestFile(filename: string, mimeType: string, content?: string) {
+  let buffer: Buffer;
+  if (mimeType.startsWith("image/")) {
+    buffer = Buffer.from(TINY_PNG_BASE64, "base64");
+  } else {
+    buffer = Buffer.from(content || "fake non-image content");
+  }
+  const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
   return new File([blob], filename, { type: mimeType });
 }
 
@@ -109,8 +118,12 @@ async function runTests() {
     alicePhotoIds = photos.map(p => p.id);
 
     for (const p of photos) {
-      const diskPath = path.join(process.cwd(), "public", p.imageUrl);
-      console.assert(fs.existsSync(diskPath), `File ${diskPath} should exist on disk`);
+      if (p.imageUrl.startsWith("http")) {
+        console.assert(p.imageUrl.includes("cloudinary.com"), "Image URL should be a valid Cloudinary URL");
+      } else {
+        const diskPath = path.join(process.cwd(), "public", p.imageUrl);
+        console.assert(fs.existsSync(diskPath), `File ${diskPath} should exist on disk`);
+      }
     }
 
     console.log("✓ New visitor (Alice) created, 2 files saved, photos QUEUED");
@@ -277,8 +290,10 @@ async function runTests() {
     // Get Alice's second photo to delete
     const photoToDelete = await prisma.photo.findUnique({ where: { id: alicePhotoIds[1] } });
     console.assert(photoToDelete !== null, "Photo must exist before deletion");
-    const filePathOnDisk = path.join(process.cwd(), "public", photoToDelete!.imageUrl);
-    console.assert(fs.existsSync(filePathOnDisk), "File must exist on disk before deletion");
+    if (!photoToDelete!.imageUrl.startsWith("http")) {
+      const filePathOnDisk = path.join(process.cwd(), "public", photoToDelete!.imageUrl);
+      console.assert(fs.existsSync(filePathOnDisk), "File must exist on disk before deletion");
+    }
 
     // Alice deletes her own photo
     const deleteReq = new Request("http://localhost:3000/api/visitor/photos", {
@@ -293,7 +308,10 @@ async function runTests() {
     const deleteData = await deleteRes.json();
 
     console.assert(deleteRes.status === 200 && deleteData.success === true, "Deletion failed");
-    console.assert(!fs.existsSync(filePathOnDisk), "File should be removed from disk");
+    if (!photoToDelete!.imageUrl.startsWith("http")) {
+      const filePathOnDisk = path.join(process.cwd(), "public", photoToDelete!.imageUrl);
+      console.assert(!fs.existsSync(filePathOnDisk), "File should be removed from disk");
+    }
 
     const dbCheck = await prisma.photo.findUnique({ where: { id: alicePhotoIds[1] } });
     console.assert(dbCheck === null, "Photo record should be deleted from DB");
@@ -306,8 +324,10 @@ async function runTests() {
     // Alice now has 1 remaining photo (alicePhotoIds[0])
     const remainingPhoto = await prisma.photo.findUnique({ where: { id: alicePhotoIds[0] } });
     console.assert(remainingPhoto !== null, "Alice should have 1 remaining photo");
-    const filePath = path.join(process.cwd(), "public", remainingPhoto!.imageUrl);
-    console.assert(fs.existsSync(filePath), "Remaining photo file should exist on disk");
+    if (!remainingPhoto!.imageUrl.startsWith("http")) {
+      const filePath = path.join(process.cwd(), "public", remainingPhoto!.imageUrl);
+      console.assert(fs.existsSync(filePath), "Remaining photo file should exist on disk");
+    }
 
     // Delete without photoId -> deletes all photos for Alice
     const deleteAllReq = new Request("http://localhost:3000/api/visitor/photos", {
@@ -322,7 +342,10 @@ async function runTests() {
 
     console.assert(deleteAllRes.status === 200 && deleteAllData.success === true, "Delete all failed");
     console.assert(deleteAllData.deletedCount === 1, `Expected 1 photo deleted, got ${deleteAllData.deletedCount}`);
-    console.assert(!fs.existsSync(filePath), "Remaining photo file should be deleted from disk");
+    if (!remainingPhoto!.imageUrl.startsWith("http")) {
+      const filePath = path.join(process.cwd(), "public", remainingPhoto!.imageUrl);
+      console.assert(!fs.existsSync(filePath), "Remaining photo file should be deleted from disk");
+    }
 
     const alicePhotosAfter = await prisma.photo.findMany({ where: { visitorId: aliceId } });
     console.assert(alicePhotosAfter.length === 0, "Alice should have 0 photos in DB");

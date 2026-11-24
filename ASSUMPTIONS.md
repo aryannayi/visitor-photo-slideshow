@@ -68,15 +68,17 @@ The system needed a storage and validation layer that prevents server resource e
 - **File Quantity**: Strictly limited to 1–3 photos per submission.
 - **File Size**: Strictly capped at 5MB per image.
 - **MIME Whitelist**: Strictly restricted to standard web image formats: `image/jpeg`, `image/png`, and `image/webp`.
-- **Local Storage in `public/uploads/` with UUID Naming**:
-  - Saved files use `crypto.randomUUID() + ext`.
-  - Zero collision risk even under high concurrency.
-  - Zero external API keys needed—an evaluator can clone the repository, run `npm install`, and test the full application immediately.
-  - An optional Cloudinary schema is documented in `.env.example` for production cloud deployment.
+- **Cloudinary Asset Storage with Local Fallback**:
+  - Validated image buffers are streamed directly to Cloudinary (`folder: visitor-slideshow`).
+  - Saved records store secure HTTPS Cloudinary CDN URLs (`https://res.cloudinary.com/...`).
+  - Full self-service deletion triggers `cloudinary.uploader.destroy()` to ensure assets are purged from the cloud CDN.
+  - If Cloudinary credentials are omitted in local development, it gracefully falls back to local disk storage in `public/uploads/` with UUID naming.
+- **Serverless PostgreSQL (Neon)**:
+  - SQLite databases do not persist across Vercel serverless function invocations; migrating Prisma to PostgreSQL enables true multi-tenant cloud persistence.
 
 ### Alternatives Considered & Rejected
-- **Mandatory Cloudinary / AWS S3**: Rejected for local grading because missing or expired API credentials would break core functionality for the evaluator.
-- **Saving Base64 strings in SQLite**: Bloats the database file, degrades query performance, and complicates HTTP caching headers.
+- **Local SQLite / Local File Writes on Vercel**: Serverless execution environments have read-only/ephemeral filesystems; local SQLite files and local image writes are lost on cold starts.
+- **Saving Base64 strings in Database**: Bloats database storage, degrades query performance, and lacks CDN caching benefits.
 
 ---
 

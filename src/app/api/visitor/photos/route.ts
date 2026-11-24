@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import { prisma } from "@/lib/prisma";
 import { normalizeContact } from "@/lib/contact";
+import { deleteCloudinaryAsset } from "@/lib/cloudinary";
 
 /**
  * Safely deletes a photo file from public/uploads to prevent directory traversal
@@ -150,8 +151,12 @@ export async function DELETE(req: NextRequest) {
         );
       }
 
-      // Delete file from disk
-      await safeDeletePhotoFile(photo.imageUrl);
+      // Delete from Cloudinary if remote, or local disk if local path
+      if (photo.imageUrl.startsWith("http://") || photo.imageUrl.startsWith("https://")) {
+        await deleteCloudinaryAsset(photo.imageUrl);
+      } else {
+        await safeDeletePhotoFile(photo.imageUrl);
+      }
 
       // Delete record from Prisma
       await prisma.photo.delete({
@@ -170,7 +175,11 @@ export async function DELETE(req: NextRequest) {
       });
 
       for (const p of photos) {
-        await safeDeletePhotoFile(p.imageUrl);
+        if (p.imageUrl.startsWith("http://") || p.imageUrl.startsWith("https://")) {
+          await deleteCloudinaryAsset(p.imageUrl);
+        } else {
+          await safeDeletePhotoFile(p.imageUrl);
+        }
       }
 
       const result = await prisma.photo.deleteMany({
